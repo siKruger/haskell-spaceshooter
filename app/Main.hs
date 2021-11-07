@@ -23,7 +23,6 @@ data GameState =
     , direction :: MoveDirection
     , heading :: Heading
     , currentLevel :: Level
-    , spriteCount :: Int
     , speedX :: Float
     , speedY :: Float
     }
@@ -46,12 +45,13 @@ background = makeColor 0.2 0.1 0.1 1
 fps :: Int
 fps = 60
 
-
+--Haben wir eine Karotte?
 isHit :: Point -> Point -> Bool
 isHit (b1x, b1y) (b2x, b2y) =
   (b1x - 10) < b2x + tileSize &&
   b1x + 50 - 10 > b2x && b1y < b2y + tileSize && b1y + 54 > b2y
 
+-- Eine Zeile bauen
 makeRow :: String -> Int -> Level
 makeRow row y =
   [ ( ( (fromIntegral x * tileSize) - ((1024 / 2) - (tileSize / 2))
@@ -61,41 +61,29 @@ makeRow row y =
   , row !! x == '*' || row !! x == '%'
   ]
 
+-- Das Feld an sich bauen
 prepareData :: [String] -> Level
 prepareData rawData =
   concat [makeRow (rawData !! y) y | y <- [0 .. length rawData - 1]]
 
+-- Entscheide ob Food oder Wand
 whatImg :: Cell -> Picture -> Picture -> Picture
 whatImg (_, cellType) tile food =
   if cellType == '*'
     then tile
     else food
 
+-- Tile zeichnen
 drawTile :: Cell -> Picture -> Picture -> Picture
 drawTile cell tileImg foodImg =
   uncurry translate (fst cell) (whatImg cell tileImg foodImg)
-
-render :: GameState -> [Picture] -> Picture
-render gs imgs =
-  pictures
-    ([drawTile cell (head imgs) (imgs !! 1) | cell <- currentLevel gs] ++
-     [ translate
-         (fst (position gs))
-         (snd (position gs) + 10)
-         (imgs !! (spriteCount gs + 2 + isRight (heading gs)))
-     ])
 
 isRight :: Heading -> Int
 isRight FacingEast = 6
 isRight _ = 0
 
 incSprite :: GameState -> Int
-incSprite gs =
-  if direction gs /= None
-    then if spriteCount gs == 5
-           then 0
-           else spriteCount gs + 1
-    else spriteCount gs
+incSprite gs = 1
 
 handleKeys :: Event -> GameState -> GameState
 handleKeys (EventKey (SpecialKey KeyLeft) Down _ _) gs =
@@ -179,13 +167,13 @@ moveY gs pnt =
     then (fst pnt, snd pnt + speedY gs)
     else pnt
 
+-- Update Funktion
 update :: Float -> GameState -> GameState
 update _ gs =
   gs
     { speedY = checkSpeedY gs
     , speedX = checkSpeedX gs
     , position = moveY gs $ moveX (direction gs) gs
-    , spriteCount = incSprite gs
     , currentLevel = checkFood gs
     }
 
@@ -194,17 +182,6 @@ main = do
   tileImg <- loadBMP "assets/tile.bmp"
   foodImg <- loadBMP "assets/food.bmp"
   left1 <- loadBMP "assets/left1.bmp"
-  left2 <- loadBMP "assets/left2.bmp"
-  left3 <- loadBMP "assets/left3.bmp"
-  left4 <- loadBMP "assets/left4.bmp"
-  left5 <- loadBMP "assets/left5.bmp"
-  left6 <- loadBMP "assets/left6.bmp"
-  right1 <- loadBMP "assets/right1.bmp"
-  right2 <- loadBMP "assets/right2.bmp"
-  right3 <- loadBMP "assets/right3.bmp"
-  right4 <- loadBMP "assets/right4.bmp"
-  right5 <- loadBMP "assets/right5.bmp"
-  right6 <- loadBMP "assets/right6.bmp"
   rawData <- readFile "assets/level"
   let level = prepareData $ reverse $ lines rawData
   let state =
@@ -212,7 +189,6 @@ main = do
           { position = (0.0, 0.0)
           , direction = None
           , currentLevel = level
-          , spriteCount = 0
           , heading = FacingWest
           , speedX = 0
           , speedY = (-6)
@@ -225,17 +201,19 @@ main = do
     (`render` [ tileImg
               , foodImg
               , left1
-              , left2
-              , left3
-              , left4
-              , left5
-              , left6
-              , right1
-              , right2
-              , right3
-              , right4
-              , right5
-              , right6
               ])
     handleKeys
     update
+
+
+-- render Methode von Gloss
+render :: GameState -> [Picture] -> Picture
+render gs imgs =
+  pictures
+    ([drawTile cell (head imgs) (imgs !! 1) | cell <- currentLevel gs] 
+    ++
+     [ translate
+         (fst (position gs))
+         (snd (position gs) + 10)
+         (imgs !! 2) -- Position 2 des render arrays stellt den Spieler da
+     ])

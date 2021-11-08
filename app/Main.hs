@@ -10,66 +10,36 @@ import Data.Fixed (Pico)
 data MoveDirection = East | West | North | South | None
   deriving (Eq)
 
-type CellType = Char
-
-type Cell = (Point, CellType)
-
-type Level = [Cell]
-
 type Asteroid = Point
 
 data GameState =
   GameState
     { position :: Point
     , direction :: MoveDirection
-    , currentLevel :: Level
     , livesLeft :: Int
     , speedX :: Float
     , speedY :: Float
     , asteroids :: [Asteroid]
     }
 
+windowHeight :: Int
+windowHeight = 700
+
+windowWidth :: Int
+windowWidth = 500
+
 
 tileSize :: Float
 tileSize = 32.0
 
 window :: Display
-window = InWindow "Space Shooter" (500, 700) (50, 50)
+window = InWindow "Space Shooter" (windowWidth, windowHeight) (50, 50)
 
 background :: Color
 background = makeColor 0.033 0.04 0.26 1
 
 fps :: Int
 fps = 60
-
--- Eine Zeile bauen
-makeRow :: String -> Int -> Level
-makeRow row y =
-  [ ( ( (fromIntegral x * tileSize) - ((1024 / 2) - (tileSize / 2))
-      , (fromIntegral y * tileSize) - ((768 / 2) - (tileSize / 2)))
-    , row !! x)
-  | x <- [0 .. length row - 1]
-  , row !! x == '*' || row !! x == '%'
-  ]
-
--- Das Feld an sich bauen
-prepareData :: [String] -> Level
-prepareData rawData =
-  concat [makeRow (rawData !! y) y | y <- [0 .. length rawData - 1]]
-
--- Entscheide ob Food oder Wand
-whatImg :: Cell -> Picture -> Picture -> Picture
-whatImg (_, cellType) tile food =
-  if cellType == '*'
-    then tile
-    else food
-
--- Tile zeichnen
-drawTile :: Cell -> Picture -> Picture -> Picture
-drawTile cell tileImg foodImg =
-  uncurry translate (fst cell) (whatImg cell tileImg foodImg)
-
-
 
 
 -- Key Input abarbeiten und handeln
@@ -140,26 +110,21 @@ movePlayer _ gs = (fst (position gs), snd (position gs))
 
 -- Update Funktion
 update :: Float -> GameState -> GameState
-update _ gs =
-  gs
-    { speedY = -5
-    , speedX = 5
-    , position = movePlayer (direction gs) gs
-    , asteroids = [(fst aste, snd aste - 1) | aste <- asteroids gs]
+update _ gs = gs
+    { speedY = -5 ,
+     speedX = 5, 
+     position = movePlayer (direction gs) gs,
+     asteroids = [(fst aste, snd aste - 1) | aste <- asteroids gs, snd aste > (fromIntegral windowHeight) * (-1) + 300] -- Despawn und Bewegen
     }
 
 main :: IO ()
 main = do
-  tileImg <- loadBMP "assets/tile.bmp"
   foodImg <- loadBMP "assets/food.bmp"
   left1 <- loadBMP "assets/left1.bmp"
-  rawData <- readFile "assets/level"
-  let level = prepareData $ reverse $ lines rawData
   let state =
         GameState
           { position = (0.0, 0.0)
           , direction = None
-          , currentLevel = level
           , livesLeft = 5
           , speedX = 0
           , speedY = 0
@@ -170,22 +135,18 @@ main = do
     background
     fps
     state
-    (`render` [ tileImg
-              , foodImg
-              , left1
-              ])
+    (`render` [foodImg, left1])
     handleKeys
     update
 
 
--- render Methode von Gloss
+-- render Methode von Gloss zum Darstellen
 render :: GameState -> [Picture] -> Picture
 render gs imgs = pictures
-    ([drawTile cell (head imgs) (imgs !! 1) | cell <- currentLevel gs
-    ] ++ [ translate
+    ([ translate
          (fst (position gs))
          (snd (position gs))
-         (imgs !! 2) -- Position 2 des render arrays stellt den Spieler da
+         (imgs !! 1) -- Position 2 des render arrays stellt den Spieler da
      ] ++ [
        drawLivesLeft gs
        ] ++ [
@@ -196,7 +157,7 @@ render gs imgs = pictures
   Liefert alle Asteroiden als Picture
 -}
 drawAsteroids :: GameState -> [Picture] -> Picture
-drawAsteroids gs imgs = pictures [(translate (fst aste) (snd aste) (imgs !! 1)) | aste <- asteroids gs]
+drawAsteroids gs imgs = pictures [(translate (fst aste) (snd aste) (imgs !! 0)) | aste <- asteroids gs]
 
 
 {-

@@ -36,6 +36,8 @@ executables:
     dependencies:
     - space-shooter
     - gloss
+    - random
+    - time
 
 tests:
   space-shooter-test:

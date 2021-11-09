@@ -43,6 +43,8 @@ packages:
 # extra-deps: []
 extra-deps:
   - gloss-1.13.1.2
+  - random-1.2.1
+  - time-1.12.1
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

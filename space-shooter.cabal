@@ -44,7 +44,9 @@ executable space-shooter-exe
   build-depends:
       base >=4.7 && <5
     , gloss
+    , random
     , space-shooter
+    , time
   default-language: Haskell2010
 
 test-suite space-shooter-test

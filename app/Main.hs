@@ -1,11 +1,14 @@
-{-# LANGUAGE UnicodeSyntax #-}
-
 module Main where
 
 import Graphics.Gloss
 
 import Graphics.Gloss.Interface.Pure.Game
 import Data.Fixed (Pico)
+import System.IO.Unsafe
+import Text.Read.Lex (Number)
+
+import Data.Int
+import System.Random (randomRIO, getStdGen, Random (randomR))
 
 data MoveDirection = East | West | North | South | None
   deriving (Eq)
@@ -19,6 +22,7 @@ data GameState =
     , livesLeft :: Int
     , speedX :: Float
     , speedY :: Float
+    , difficulty :: Int
     , asteroids :: [Asteroid]
     }
 
@@ -103,19 +107,36 @@ movePlayer South gs =
       (fst (position gs), snd (position gs) + speedY gs * 1)
     else 
       (fst (position gs), snd (position gs))
-
-
+      
 movePlayer _ gs = (fst (position gs), snd (position gs))
+
+
+
+{-
+  Asteroiden erstellen wir hier
+-}
+generateAsteroid :: Int -> [Asteroid]
+generateAsteroid 0 = []
+generateAsteroid n = [(
+  30
+  ,50)]
+
+
+
+
 
 
 -- Update Funktion
 update :: Float -> GameState -> GameState
-update _ gs = gs
-    { speedY = -5 ,
-     speedX = 5, 
-     position = movePlayer (direction gs) gs,
-     asteroids = [(fst aste, snd aste - 1) | aste <- asteroids gs, snd aste > (fromIntegral windowHeight) * (-1) + 300] -- Despawn und Bewegen
-    }
+update _ gs = 
+  if(True) then --Anzahl der Asteroids
+     gs { speedY = -5, speedX = 5, position = movePlayer (direction gs) gs, 
+     asteroids = [(fst aste, snd aste - 5) | aste <- asteroids gs, snd aste > (fromIntegral windowHeight) * (-1) + 300] ++ generateAsteroid (1)}
+     else
+      gs { speedY = -5, speedX = 5, position = movePlayer (direction gs) gs, 
+      asteroids = [(fst aste, snd aste - 5) | aste <- asteroids gs, snd aste > (fromIntegral windowHeight) * (-1) + 300]}
+
+
 
 main :: IO ()
 main = do
@@ -129,6 +150,7 @@ main = do
           , speedX = 0
           , speedY = 0
           , asteroids = [(50, 50)]
+          , difficulty = 3
           }
   play
     window

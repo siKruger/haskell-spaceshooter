@@ -24,6 +24,7 @@ data GameState =
     , speedY :: Float
     , difficulty :: Int
     , asteroids :: [Asteroid]
+    , asteroidSpawnPos :: IO Float
     }
 
 windowHeight :: Int
@@ -115,11 +116,11 @@ movePlayer _ gs = (fst (position gs), snd (position gs))
 {-
   Asteroiden erstellen wir hier
 -}
-generateAsteroid :: Int -> [Asteroid]
-generateAsteroid 0 = []
-generateAsteroid n = [(
-  30
-  ,50)]
+generateAsteroid :: Int -> GameState -> [Asteroid]
+generateAsteroid 0 _ = []
+generateAsteroid n gs = [(
+  unsafePerformIO (asteroidSpawnPos gs)
+  ,50)] ++ generateAsteroid (n-1) gs
 
 
 
@@ -129,13 +130,19 @@ generateAsteroid n = [(
 -- Update Funktion
 update :: Float -> GameState -> GameState
 update _ gs = 
-  if(True) then --Anzahl der Asteroids
+  if(length (asteroids gs) < 5) then --Anzahl der Asteroids
      gs { speedY = -5, speedX = 5, position = movePlayer (direction gs) gs, 
-     asteroids = [(fst aste, snd aste - 5) | aste <- asteroids gs, snd aste > (fromIntegral windowHeight) * (-1) + 300] ++ generateAsteroid (1)}
+     asteroids = [(fst aste, snd aste - 1) | aste <- asteroids gs, snd aste > (fromIntegral windowHeight) * (-1) + 300] ++ generateAsteroid  3 gs}
      else
       gs { speedY = -5, speedX = 5, position = movePlayer (direction gs) gs, 
-      asteroids = [(fst aste, snd aste - 5) | aste <- asteroids gs, snd aste > (fromIntegral windowHeight) * (-1) + 300]}
+      asteroids = [(fst aste, snd aste - 1) | aste <- asteroids gs, snd aste > (fromIntegral windowHeight) * (-1) + 300]}
 
+
+{-
+  Generiert random Positionen für unsere Asteroiden
+-}
+getRandomNum :: IO Float
+getRandomNum =  randomRIO ((-230),230)
 
 
 main :: IO ()
@@ -150,7 +157,8 @@ main = do
           , speedX = 0
           , speedY = 0
           , asteroids = [(50, 50)]
-          , difficulty = 3
+          , difficulty = 1
+          , asteroidSpawnPos = getRandomNum
           }
   play
     window

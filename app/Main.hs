@@ -209,7 +209,7 @@ update _ gs =
   Generiert random Positionen für unsere Asteroiden
 -}
 getRandomNum :: IO Float
-getRandomNum =  randomRIO ((-230),230)
+getRandomNum =  randomRIO ((-120),120) --150
 
 getRandomInt :: IO Int
 getRandomInt = randomRIO(0, 300)
@@ -217,8 +217,8 @@ getRandomInt = randomRIO(0, 300)
 
 main :: IO ()
 main = do
-  foodImg <- loadBMP "assets/food.bmp"
-  left1 <- loadBMP "assets/left1.bmp"
+  asteroidImg <- loadBMP "assets/asteroid.bmp"
+  spaceshipImg <- loadBMP "assets/SpaceshipTest1.bmp"
   let state =
         GameState
           { position = (0.0, 0.0)
@@ -236,7 +236,7 @@ main = do
     background
     fps
     state
-    (`render` [foodImg, left1])
+    (`render` [asteroidImg, spaceshipImg])
     handleKeys
     update
 
@@ -258,7 +258,10 @@ render gs imgs = pictures
   Liefert alle Asteroiden als Picture
 -}
 drawAsteroids :: GameState -> [Picture] -> Picture
-drawAsteroids gs imgs = pictures [(translate (fst aste) (snd aste) (imgs !! 0)) | aste <- asteroids gs]
+drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc gs) (asteroidSizeCalc gs) (translate (fst aste) (snd aste) (imgs !! 0)) | aste <- asteroids gs]
+
+asteroidSizeCalc :: GameState -> Float
+asteroidSizeCalc gs = 2 + 0.1 * fromIntegral (difficulty gs)
 
 
 {-

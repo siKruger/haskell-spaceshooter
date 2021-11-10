@@ -1,6 +1,6 @@
 name:                space-shooter
 version:             0.1.0.0
-github:              "https://github.com/siKruger/haskell-spaceshooter"
+github:              "siKruger/haskell-spaceshooter"
 license:             BSD3
 author:              "Simon Krüger& Jeffrey Kahlert"
 maintainer:          "sim.krueger@ostfalia.de"

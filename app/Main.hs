@@ -123,33 +123,22 @@ movePlayerProc _ gs = (fst (position gs), snd (position gs))
 generateAsteroid :: GameState -> [Asteroid]
 generateAsteroid gs = 
   --if((unsafePerformIO (asteroidSpawnChance gs)) * (difficulty gs)> 295) then
-  if((unsafePerformIO (asteroidSpawnChance gs)) + (difficulty gs * 3)> 295 && length (asteroids gs) < 8 + 1 * fromIntegral (difficulty gs)) then
-       [(unsafePerformIO (asteroidSpawnPos gs), 320)]
-    else 
-      []
+  if((unsafePerformIO (asteroidSpawnChance gs)) + (difficulty gs * 3)> 295 && length (asteroids gs) < 8 + 1 * fromIntegral (difficulty gs)) then [(unsafePerformIO (asteroidSpawnPos gs), 320)] else []
 
 
 
-{-
-  Überprüft die Kollision mit allen Asteroiden
--}
-isCollidingWithAsteroideList :: GameState -> Bool
-isCollidingWithAsteroideList gs = length [pos | pos <- asteroids gs, isCollidingWithAsteroide  pos (position gs)] > 0
 
 
-{-
-  Überprüft die Kollisionen mit einem Punkt
--}
 
 --haben aste 24x24
 -- schiff hat 50x53
 
-collisionSize :: Float
-collisionSize = 5
 
-isCollidingWithAsteroide :: Point -> Point -> Bool 
-isCollidingWithAsteroide playerPos astePos = pointInBox playerPos (fst astePos + 25, snd astePos + 8) (fst astePos - 25, snd astePos - 25)
 {-
+  Überprüft die Kollisionen mit einem Punkt
+
+
+  {-
 (1,2) (3,4)
 1 geht nach rechts
 3 geht nach links
@@ -159,12 +148,39 @@ isCollidingWithAsteroide playerPos astePos = pointInBox playerPos (fst astePos +
 
 -}
 -- 30 15
+-}
 
 
 
 
-asteroidCollisionDetect :: GameState -> [Asteroid]
-asteroidCollisionDetect gs = [(fst aste, snd aste - (asteroidBaseSpeed +  0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))]
+
+
+
+
+
+-- Kollidieren wir mit irgendeinem Asteroiden?
+isCollidingWithAsteroideList :: Point -> [Asteroid] -> Int -> Bool
+isCollidingWithAsteroideList playerPos asteri diffi = isCollidingWithAsteroideListNum playerPos asteri diffi > 0
+
+-- Mit wievielen Asteroiden kollidieren wir?
+isCollidingWithAsteroideListNum :: Point -> [Asteroid] -> Int -> Int
+isCollidingWithAsteroideListNum playerPos asteri diffi = length [aste | aste <- asteri, isCollidingAsteroide playerPos aste diffi]
+
+-- Kolledieren wir mit diesem Asteroiden?
+isCollidingAsteroide :: Point -> Point -> Int -> Bool 
+isCollidingAsteroide p1 p2 diffi = pointInBox p1 (fst p2 * 2 + 50 , snd p2 * 2 + 40) (fst p2 * 2 - 50, snd p2 * 2 - 40) -- Für Difficulty 1
+
+-- Asteroid innerhalb des angezeigten Bereiches?
+asteroidInsideGame :: Asteroid -> Bool 
+asteroidInsideGame aste = snd aste > -320
+
+-- Geschwindigkeit des Asteroiden
+calcAsteroideSpeed :: Int -> Float
+calcAsteroideSpeed diffi = asteroidBaseSpeed + 0.2 * fromIntegral diffi
+
+-- Check, ob der Asteroid weiterhin exisitieren soll
+renderCheckAsteroide :: Asteroid -> Point -> Int -> Bool
+renderCheckAsteroide aste pos diffi = asteroidInsideGame aste && not (isCollidingAsteroide pos aste diffi)
 
 
 {-
@@ -172,31 +188,27 @@ asteroidCollisionDetect gs = [(fst aste, snd aste - (asteroidBaseSpeed +  0.2 * 
 -}
 update :: Float -> GameState -> GameState
 update _ gs = 
+  if isCollidingWithAsteroideList (position gs) (asteroids gs) (difficulty gs) then
   gs {
+    asteroids = [(fst aste, snd aste - calcAsteroideSpeed (difficulty gs)) | aste <- asteroids gs, renderCheckAsteroide aste (position gs) (difficulty gs)] ++ generateAsteroid gs,
     position = movePlayer (direction gs) gs,
-    asteroids = asteroidCollisionDetect gs ++ generateAsteroid gs,
-    livesLeft = if (isCollidingWithAsteroideList gs) then livesLeft gs -1 else livesLeft gs
+    livesLeft = livesLeft gs - isCollidingWithAsteroideListNum (position gs) (asteroids gs) (difficulty gs)
+    }
+    else
+  gs {
+    asteroids = [(fst aste, snd aste - calcAsteroideSpeed (difficulty gs)) | aste <- asteroids gs, renderCheckAsteroide aste (position gs) (difficulty gs)] ++ generateAsteroid gs,
+    position = movePlayer (direction gs) gs
   }
 
 
 
 
-
-
-
-
-
-
-
-{-
-  Generiert random Positionen für unsere Asteroiden
--}
+--Generiert random Positionen für unsere Asteroiden
 getRandomNum :: IO Float
 getRandomNum =  randomRIO ((0),20) --150 --120?
 
-{-
-  Random int zur bestimmung, ob ein Asteroid spawn (decluttern)
--}
+
+--Random int zur bestimmung, ob ein Asteroid spawn (decluttern)
 getRandomInt :: IO Int
 getRandomInt = randomRIO(0, 300)
 
@@ -211,9 +223,9 @@ main = do
         GameState
           { position = (0.0, 0.0)
           , direction = None
-          , livesLeft = 500
+          , livesLeft = 5000
           --, asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600), (00, 50)]
-          , asteroids = [(80, 90), (-80, 90), (50, 90), (-50, 90), (40, 90), (-40, 90), (30, 90), (-30, 90), (20, 80), (-20, 80), (00, 80)] -- SHOULD COLLIDE WITH ALL OF THEM
+          , asteroids = [(80, 90), (-80, 90), (50, 90), (-50, 90), (20, 80), (-20, 80), (00, 80)] -- SHOULD COLLIDE WITH ALL OF THEM
           , difficulty = 1
           , asteroidSpawnPos = getRandomNum
           , asteroidSpawnChance = getRandomInt
@@ -245,10 +257,10 @@ render gs imgs = pictures
   Liefert alle Asteroiden als Picture
 -}
 drawAsteroids :: GameState -> [Picture] -> Picture
-drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc gs) (asteroidSizeCalc gs) (translate (fst aste) (snd aste) (imgs !! 0)) | aste <- asteroids gs]
+drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc (difficulty gs)) (asteroidSizeCalc (difficulty gs)) (translate (fst aste) (snd aste) (imgs !! 0)) | aste <- asteroids gs]
 
-asteroidSizeCalc :: GameState -> Float
-asteroidSizeCalc gs = 2 + 0.1 * fromIntegral (difficulty gs)
+asteroidSizeCalc :: Int -> Float
+asteroidSizeCalc diffi = 2 + 0.1 * fromIntegral diffi
 --asteroidSizeCalc gs = 1
 
 {-
@@ -258,7 +270,7 @@ drawLivesLeft :: GameState -> Picture
 drawLivesLeft gs = 
   if(livesLeft gs > 0) then
   Color (makeColor 1 1 1 1) (pictures([
-    translate (-150) (300) (Scale (0.3) (0.3) (Text "Leben"))
+    translate (0) (300) (Scale (0.3) (0.3) (Text (show (position gs))))
   ] ++ [
     translate (-200) (300) (Scale (0.3) (0.3) (Text (show (livesLeft gs))))
   ]))

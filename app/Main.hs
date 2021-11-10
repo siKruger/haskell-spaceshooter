@@ -72,25 +72,35 @@ isCollisionWithGameWallDown pnt = if(snd (pnt) > -300) then True else False
 
 
 
+
+{-
+  Move player mit Abfrage für Game Over
+-}
+movePlayer :: MoveDirection -> GameState -> Point
+movePlayer dir gs = if(livesLeft gs > 0) then 
+  movePlayerProc dir gs
+  else
+    (0,-50)
+
 {- 
 fst, snd geben das erste/letzte Element einer Liste zurück
 -}
-movePlayer :: MoveDirection -> GameState -> Point
-movePlayer East gs = 
+movePlayerProc :: MoveDirection -> GameState -> Point
+movePlayerProc East gs = 
   if(isCollisionWithGameWallRight (fst (position gs), snd (position gs))) 
     then  
     (fst (position gs) + speedX gs, snd (position gs))
     else
       (fst (position gs), snd (position gs))
   
-movePlayer West gs =
+movePlayerProc West gs =
   if(isCollisionWithGameWallLeft (fst (position gs), snd (position gs))) 
     then
       (fst (position gs) + speedX gs * (-1), snd (position gs))
     else
       (fst (position gs), snd (position gs))
 
-movePlayer North gs =
+movePlayerProc North gs =
   if(isCollisionWithGameWallUp (fst (position gs), snd (position gs)))
     then
       (fst (position gs), snd (position gs) + speedY gs * (-1))
@@ -98,14 +108,14 @@ movePlayer North gs =
       (fst (position gs), snd (position gs))
 
 
-movePlayer South gs =
+movePlayerProc South gs =
   if(isCollisionWithGameWallDown (fst (position gs), snd (position gs)))
     then
       (fst (position gs), snd (position gs) + speedY gs * 1)
     else 
       (fst (position gs), snd (position gs))
       
-movePlayer _ gs = (fst (position gs), snd (position gs))
+movePlayerProc _ gs = (fst (position gs), snd (position gs))
 
 
 
@@ -146,12 +156,22 @@ hasCollisionWithAsteroidWithSpawn gs =
         }
 
 
+{-
+  Überprüft die Kollision mit allen Asteroiden
+-}
 isCollidingWithAsteroideList :: GameState -> Bool
 isCollidingWithAsteroideList gs = length [pos | pos <- asteroids gs, isCollidingWithAsteroide pos (position gs)] > 0
 
 
+{-
+  Überprüft die Kollisionen mit einem Punkt
+-}
+
+collisionSize :: Float
+collisionSize = 20
+
 isCollidingWithAsteroide :: Point -> Point -> Bool 
-isCollidingWithAsteroide playerPos astePos = pointInBox (fst playerPos, snd playerPos) (fst astePos + 5, snd astePos + 5) (fst astePos - 5, snd astePos - 5)
+isCollidingWithAsteroide playerPos astePos = pointInBox (fst playerPos, snd playerPos) (fst astePos + collisionSize, snd astePos + collisionSize) (fst astePos + (-1) * collisionSize, snd astePos + (-1) * collisionSize)
 
 
 
@@ -242,11 +262,15 @@ drawAsteroids gs imgs = pictures [(translate (fst aste) (snd aste) (imgs !! 0)) 
 
 
 {-
-  Zeigt die Verbleibenden Leben an. 
+  Zeigt die Verbleibenden Leben an/ game over
 -}
 drawLivesLeft :: GameState -> Picture 
-drawLivesLeft gs = Color (makeColor 1 1 1 1) (pictures([
+drawLivesLeft gs = 
+  if(livesLeft gs > 0) then
+  Color (makeColor 1 1 1 1) (pictures([
     translate (-150) (300) (Scale (0.3) (0.3) (Text "Leben"))
   ] ++ [
     translate (-200) (300) (Scale (0.3) (0.3) (Text (show (livesLeft gs))))
   ]))
+  else 
+    translate (-200) 0 (Color (makeColor 1 1 1 1) (Scale 0.5 0.5 (Text "Game Over")))

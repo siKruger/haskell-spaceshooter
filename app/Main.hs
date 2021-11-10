@@ -22,8 +22,6 @@ data GameState =
     { position :: Point
     , direction :: MoveDirection
     , livesLeft :: Int
-    , speedX :: Float
-    , speedY :: Float
     , difficulty :: Int
     , asteroids :: [Asteroid]
     , asteroidSpawnPos :: IO Float
@@ -89,21 +87,21 @@ movePlayerProc :: MoveDirection -> GameState -> Point
 movePlayerProc East gs = 
   if(isCollisionWithGameWallRight (fst (position gs), snd (position gs))) 
     then  
-    (fst (position gs) + speedX gs, snd (position gs))
+    (fst (position gs) + 5, snd (position gs))
     else
       (fst (position gs), snd (position gs))
   
 movePlayerProc West gs =
   if(isCollisionWithGameWallLeft (fst (position gs), snd (position gs))) 
     then
-      (fst (position gs) + speedX gs * (-1), snd (position gs))
+      (fst (position gs) + 5 * (-1), snd (position gs))
     else
       (fst (position gs), snd (position gs))
 
 movePlayerProc North gs =
   if(isCollisionWithGameWallUp (fst (position gs), snd (position gs)))
     then
-      (fst (position gs), snd (position gs) + speedY gs * (-1))
+      (fst (position gs), snd (position gs) + (-5) * (-1))
     else 
       (fst (position gs), snd (position gs))
 
@@ -111,7 +109,7 @@ movePlayerProc North gs =
 movePlayerProc South gs =
   if(isCollisionWithGameWallDown (fst (position gs), snd (position gs)))
     then
-      (fst (position gs), snd (position gs) + speedY gs * 1)
+      (fst (position gs), snd (position gs) +  (-5) * 1)
     else 
       (fst (position gs), snd (position gs))
       
@@ -133,26 +131,19 @@ generateAsteroid gs =
 
 {-
   Kollisionsabfrage zwischen Spieler und Asteroiden
-
-  TODO: gute werte für hitboxe (PAIN)
-  Asteroid löschen, nachdem wir kollidiert sind (PAIN ^2)
 -}
 hasCollisionWithAsteroidWithSpawn :: GameState -> GameState
 hasCollisionWithAsteroidWithSpawn gs = 
   if(isCollidingWithAsteroideList gs) then
    gs { 
-          speedY = -5,
-          speedX = 5, 
+          asteroids = [(fst aste, snd aste - (asteroidBaseSpeed +  0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))] ++ generateAsteroid gs,
           position = movePlayer (direction gs) gs, 
-          asteroids = [(fst aste, snd aste - (0.8 +  0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))] ++ generateAsteroid gs,
           livesLeft = (livesLeft gs - 1)
         }
     else
     gs { 
-          speedY = -5,
-          speedX = 5, 
-          position = movePlayer (direction gs) gs, 
-          asteroids = [(fst aste, snd aste - (0.8 +  0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))] ++ generateAsteroid gs
+          asteroids = [(fst aste, snd aste - (asteroidBaseSpeed +  0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))] ++ generateAsteroid gs,
+          position = movePlayer (direction gs) gs
         }
 
 
@@ -160,40 +151,55 @@ hasCollisionWithAsteroidWithSpawn gs =
   Überprüft die Kollision mit allen Asteroiden
 -}
 isCollidingWithAsteroideList :: GameState -> Bool
-isCollidingWithAsteroideList gs = length [pos | pos <- asteroids gs, isCollidingWithAsteroide pos (position gs)] > 0
+isCollidingWithAsteroideList gs = length [pos | pos <- asteroids gs, isCollidingWithAsteroide  pos (position gs)] > 0
 
 
 {-
   Überprüft die Kollisionen mit einem Punkt
 -}
 
+--haben aste 24x24
+-- schiff hat 50x53
+
 collisionSize :: Float
-collisionSize = 20
+collisionSize = 5
 
 isCollidingWithAsteroide :: Point -> Point -> Bool 
-isCollidingWithAsteroide playerPos astePos = pointInBox (fst playerPos, snd playerPos) (fst astePos + collisionSize, snd astePos + collisionSize) (fst astePos + (-1) * collisionSize, snd astePos + (-1) * collisionSize)
+isCollidingWithAsteroide playerPos astePos = pointInBox playerPos (fst astePos + 25, snd astePos + 8) (fst astePos - 25, snd astePos - 25)
+{-
+(1,2) (3,4)
+1 geht nach rechts
+3 geht nach links
+
+2 geht nach oben
+4 geht nach unten
+
+-}
 
 
+-- 30 15
 
-
+{-
+  Kollision mit Asteroid?
+-}
 hasCollisionWithAsteroid :: GameState -> GameState
 hasCollisionWithAsteroid gs = 
   if(isCollidingWithAsteroideList gs) then
         gs { 
-          speedY = -5,
-          speedX = 5,
+          asteroids = [(fst aste, snd aste - (asteroidBaseSpeed +  0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))],
           position = movePlayer (direction gs) gs, 
-          asteroids = [(fst aste, snd aste - (0.8 +  0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))],
           livesLeft = (livesLeft gs - 1)
         }
     else
       gs { 
-          speedY = -5,
-          speedX = 5,
-          position = movePlayer (direction gs) gs, 
-          asteroids = [(fst aste, snd aste - (0.8 + 0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))]
+          asteroids = [(fst aste, snd aste - (asteroidBaseSpeed + 0.2 * fromIntegral (difficulty gs))) | aste <- asteroids gs, snd aste > -320 && not (isCollidingWithAsteroide aste (position gs))],
+          position = movePlayer (direction gs) gs
         }
 
+--
+
+asteroidBaseSpeed :: Float
+asteroidBaseSpeed = 0.8 --0.8
 
 
 -- Update Funktion
@@ -209,24 +215,26 @@ update _ gs =
   Generiert random Positionen für unsere Asteroiden
 -}
 getRandomNum :: IO Float
-getRandomNum =  randomRIO ((-120),120) --150
+getRandomNum =  randomRIO ((0),20) --150 --120?
 
+{-
+  Random int zur bestimmung, ob ein Asteroid spawn (decluttern)
+-}
 getRandomInt :: IO Int
 getRandomInt = randomRIO(0, 300)
 
 
 main :: IO ()
 main = do
-  asteroidImg <- loadBMP "assets/asteroid.bmp"
+  asteroidImg <- loadBMP "assets/Asteroid.bmp"
   spaceshipImg <- loadBMP "assets/SpaceshipTest1.bmp"
   let state =
         GameState
           { position = (0.0, 0.0)
           , direction = None
-          , livesLeft = 5
-          , speedX = 0
-          , speedY = 0
-          , asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600), (00, 50)]
+          , livesLeft = 500
+          --, asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600), (00, 50)]
+          , asteroids = [(80, 90), (-80, 90), (50, 90), (-50, 90), (40, 90), (-40, 90), (30, 90), (-30, 90), (20, 80), (-20, 80), (00, 80)] -- SHOULD COLLIDE WITH ALL OF THEM
           , difficulty = 1
           , asteroidSpawnPos = getRandomNum
           , asteroidSpawnChance = getRandomInt
@@ -262,7 +270,7 @@ drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc gs) (asteroidSizeCalc 
 
 asteroidSizeCalc :: GameState -> Float
 asteroidSizeCalc gs = 2 + 0.1 * fromIntegral (difficulty gs)
-
+--asteroidSizeCalc gs = 1
 
 {-
   Zeigt die Verbleibenden Leben an/ game over

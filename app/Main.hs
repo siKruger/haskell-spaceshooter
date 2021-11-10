@@ -57,16 +57,16 @@ Kollision mit der Wand unserer Spielwelt
 todo: refactor in eine methode mit pattern matching
 -}
 isCollisionWithGameWallRight :: Point -> Bool
-isCollisionWithGameWallRight pnt = if(fst (pnt) < 200) then True else False
+isCollisionWithGameWallRight pnt = (fst (pnt) < 200)
 
 isCollisionWithGameWallLeft :: Point -> Bool
-isCollisionWithGameWallLeft pnt = if(fst (pnt) > -200) then True else False
+isCollisionWithGameWallLeft pnt = (fst (pnt) > -200)
 
 isCollisionWithGameWallUp :: Point -> Bool
-isCollisionWithGameWallUp pnt = if(snd (pnt) < 300) then True else False 
+isCollisionWithGameWallUp pnt = (snd (pnt) < 300)
 
 isCollisionWithGameWallDown :: Point -> Bool
-isCollisionWithGameWallDown pnt = if(snd (pnt) > -300) then True else False 
+isCollisionWithGameWallDown pnt = (snd (pnt) > -300)
 
 
 
@@ -75,7 +75,7 @@ isCollisionWithGameWallDown pnt = if(snd (pnt) > -300) then True else False
   Move player mit Abfrage für Game Over
 -}
 movePlayer :: MoveDirection -> GameState -> Point
-movePlayer dir gs = if(livesLeft gs > 0) then 
+movePlayer dir gs = if livesLeft gs > 0 then
   movePlayerProc dir gs
   else
     (0,-50)
@@ -84,79 +84,48 @@ movePlayer dir gs = if(livesLeft gs > 0) then
 fst, snd geben das erste/letzte Element einer Liste zurück
 -}
 movePlayerProc :: MoveDirection -> GameState -> Point
-movePlayerProc East gs = 
-  if(isCollisionWithGameWallRight (fst (position gs), snd (position gs))) 
-    then  
+movePlayerProc East gs =
+  if isCollisionWithGameWallRight (fst (position gs), snd (position gs))
+    then
     (fst (position gs) + 5, snd (position gs))
     else
-      (fst (position gs), snd (position gs))
-  
+      (position gs)
+
 movePlayerProc West gs =
-  if(isCollisionWithGameWallLeft (fst (position gs), snd (position gs))) 
+  if isCollisionWithGameWallLeft (fst (position gs), snd (position gs))
     then
       (fst (position gs) + 5 * (-1), snd (position gs))
     else
-      (fst (position gs), snd (position gs))
+      (position gs)
 
 movePlayerProc North gs =
-  if(isCollisionWithGameWallUp (fst (position gs), snd (position gs)))
+  if isCollisionWithGameWallUp (fst (position gs), snd (position gs))
     then
       (fst (position gs), snd (position gs) + (-5) * (-1))
-    else 
-      (fst (position gs), snd (position gs))
+    else
+      (position gs)
 
 
 movePlayerProc South gs =
-  if(isCollisionWithGameWallDown (fst (position gs), snd (position gs)))
+  if isCollisionWithGameWallDown (fst (position gs), snd (position gs))
     then
       (fst (position gs), snd (position gs) +  (-5) * 1)
-    else 
-      (fst (position gs), snd (position gs))
-      
-movePlayerProc _ gs = (fst (position gs), snd (position gs))
+    else
+      (position gs)
+
+movePlayerProc _ gs = (position gs)
+
 
 
 
 {-
-  Asteroiden erstellen wir hier
+  +++++ Asteroiden Logik +++++
 -}
+
+-- Erstellung eines Asteroiden, sofern RNG und Anzahl passt.
 generateAsteroid :: GameState -> [Asteroid]
-generateAsteroid gs = 
-  --if((unsafePerformIO (asteroidSpawnChance gs)) * (difficulty gs)> 295) then
-  if((unsafePerformIO (asteroidSpawnChance gs)) + (difficulty gs * 3)> 295 && length (asteroids gs) < 8 + 1 * fromIntegral (difficulty gs)) then [(unsafePerformIO (asteroidSpawnPos gs), 320)] else []
-
-
-
-
-
-
---haben aste 24x24
--- schiff hat 50x53
-
-
-{-
-  Überprüft die Kollisionen mit einem Punkt
-
-
-  {-
-(1,2) (3,4)
-1 geht nach rechts
-3 geht nach links
-
-2 geht nach oben
-4 geht nach unten
-
--}
--- 30 15
--}
-
-
-
-
-
-
-
-
+--generateAsteroid gs = if(unsafePerformIO (asteroidSpawnChance gs)) + (difficulty gs * 3)> 295 && length (asteroids gs) < 8 + 1 * fromIntegral (difficulty gs) then [(unsafePerformIO (asteroidSpawnPos gs), 320)] else []
+generateAsteroid gs = [(unsafePerformIO (asteroidSpawnPos gs), 320) | (unsafePerformIO (asteroidSpawnChance gs)) + (difficulty gs * 3)> 295 && length (asteroids gs) < 8 + 1 * fromIntegral (difficulty gs)]
 
 -- Kollidieren wir mit irgendeinem Asteroiden?
 isCollidingWithAsteroideList :: Point -> [Asteroid] -> Int -> Bool
@@ -167,11 +136,12 @@ isCollidingWithAsteroideListNum :: Point -> [Asteroid] -> Int -> Int
 isCollidingWithAsteroideListNum playerPos asteri diffi = length [aste | aste <- asteri, isCollidingAsteroide playerPos aste diffi]
 
 -- Kolledieren wir mit diesem Asteroiden?
-isCollidingAsteroide :: Point -> Point -> Int -> Bool 
-isCollidingAsteroide p1 p2 diffi = pointInBox p1 (fst p2 * 2 + 50 , snd p2 * 2 + 40) (fst p2 * 2 - 50, snd p2 * 2 - 40) -- Für Difficulty 1
+isCollidingAsteroide :: Point -> Point -> Int -> Bool
+--isCollidingAsteroide p1 p2 diffi = pointInBox p1 (fst p2 * 2 + 50 , snd p2 * 2 + 40) (fst p2 * 2 - 50, snd p2 * 2 - 40) -- Für Difficulty 1
+isCollidingAsteroide p1 p2 diffi = pointInBox p1 (fst p2 * asteroidSizeCalc diffi + 50 , snd p2 * asteroidSizeCalc diffi + 40) (fst p2 * asteroidSizeCalc diffi - 50, snd p2 * asteroidSizeCalc diffi - 40) -- Für Difficulty 1
 
 -- Asteroid innerhalb des angezeigten Bereiches?
-asteroidInsideGame :: Asteroid -> Bool 
+asteroidInsideGame :: Asteroid -> Bool
 asteroidInsideGame aste = snd aste > -320
 
 -- Geschwindigkeit des Asteroiden
@@ -183,11 +153,18 @@ renderCheckAsteroide :: Asteroid -> Point -> Int -> Bool
 renderCheckAsteroide aste pos diffi = asteroidInsideGame aste && not (isCollidingAsteroide pos aste diffi)
 
 
+
+
+
+
+
+
+
 {-
   Updaten des Gamestates!
 -}
 update :: Float -> GameState -> GameState
-update _ gs = 
+update _ gs =
   if isCollidingWithAsteroideList (position gs) (asteroids gs) (difficulty gs) then
   gs {
     asteroids = [(fst aste, snd aste - calcAsteroideSpeed (difficulty gs)) | aste <- asteroids gs, renderCheckAsteroide aste (position gs) (difficulty gs)] ++ generateAsteroid gs,
@@ -205,7 +182,7 @@ update _ gs =
 
 --Generiert random Positionen für unsere Asteroiden
 getRandomNum :: IO Float
-getRandomNum =  randomRIO ((0),20) --150 --120?
+getRandomNum =  randomRIO (0,20) --150 --120?
 
 
 --Random int zur bestimmung, ob ein Asteroid spawn (decluttern)
@@ -226,7 +203,7 @@ main = do
           , livesLeft = 5000
           --, asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600), (00, 50)]
           , asteroids = [(80, 90), (-80, 90), (50, 90), (-50, 90), (20, 80), (-20, 80), (00, 80)] -- SHOULD COLLIDE WITH ALL OF THEM
-          , difficulty = 1
+          , difficulty = 10
           , asteroidSpawnPos = getRandomNum
           , asteroidSpawnChance = getRandomInt
           }
@@ -243,9 +220,7 @@ main = do
 -- render Methode von Gloss zum Darstellen
 render :: GameState -> [Picture] -> Picture
 render gs imgs = pictures
-    ([ translate
-         (fst (position gs))
-         (snd (position gs))
+    ([ uncurry translate (position gs)
          (imgs !! 1) -- Position 2 des render arrays stellt den Spieler da
      ] ++ [
        drawLivesLeft gs
@@ -257,7 +232,7 @@ render gs imgs = pictures
   Liefert alle Asteroiden als Picture
 -}
 drawAsteroids :: GameState -> [Picture] -> Picture
-drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc (difficulty gs)) (asteroidSizeCalc (difficulty gs)) (translate (fst aste) (snd aste) (imgs !! 0)) | aste <- asteroids gs]
+drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc (difficulty gs)) (asteroidSizeCalc (difficulty gs)) (uncurry translate aste (head imgs)) | aste <- asteroids gs]
 
 asteroidSizeCalc :: Int -> Float
 asteroidSizeCalc diffi = 2 + 0.1 * fromIntegral diffi
@@ -266,13 +241,12 @@ asteroidSizeCalc diffi = 2 + 0.1 * fromIntegral diffi
 {-
   Zeigt die Verbleibenden Leben an/ game over
 -}
-drawLivesLeft :: GameState -> Picture 
-drawLivesLeft gs = 
-  if(livesLeft gs > 0) then
-  Color (makeColor 1 1 1 1) (pictures([
-    translate (0) (300) (Scale (0.3) (0.3) (Text (show (position gs))))
-  ] ++ [
+drawLivesLeft :: GameState -> Picture
+drawLivesLeft gs =
+  if livesLeft gs > 0 then
+  Color (makeColor 1 1 1 1) (pictures(
+    translate (0) (300) (Scale (0.3) (0.3) (Text (show (position gs)))) : [
     translate (-200) (300) (Scale (0.3) (0.3) (Text (show (livesLeft gs))))
   ]))
-  else 
+  else
     translate (-200) 0 (Color (makeColor 1 1 1 1) (Scale 0.5 0.5 (Text "Game Over")))

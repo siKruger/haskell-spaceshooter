@@ -1,10 +1,10 @@
 name:                space-shooter
 version:             0.1.0.0
-github:              "githubuser/space-shooter"
+github:              "https://github.com/siKruger/haskell-spaceshooter"
 license:             BSD3
 author:              "Simon Krüger& Jeffrey Kahlert"
-maintainer:          "example@example.com"
-copyright:           "2021 Author name here"
+maintainer:          "sim.krueger@ostfalia.de"
+copyright:           "2021 Simon Krüger& Jeffrey Kahlert"
 
 extra-source-files:
 - README.md
@@ -17,7 +17,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/space-shooter#readme>
+description:         Please see the README on GitHub at <https://github.com/siKruger/haskell-spaceshooter#readme>
 
 dependencies:
 - base >= 4.7 && < 5

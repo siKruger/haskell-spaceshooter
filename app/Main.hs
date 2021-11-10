@@ -123,9 +123,9 @@ movePlayerProc _ gs = (position gs)
 -}
 
 -- Erstellung eines Asteroiden, sofern RNG und Anzahl passt.
-generateAsteroid :: GameState -> [Asteroid]
+generateAsteroid :: IO Float ->  IO Int -> Int -> [Asteroid] -> [Asteroid]
 --generateAsteroid gs = if(unsafePerformIO (asteroidSpawnChance gs)) + (difficulty gs * 3)> 295 && length (asteroids gs) < 8 + 1 * fromIntegral (difficulty gs) then [(unsafePerformIO (asteroidSpawnPos gs), 320)] else []
-generateAsteroid gs = [(unsafePerformIO (asteroidSpawnPos gs), 320) | (unsafePerformIO (asteroidSpawnChance gs)) + (difficulty gs * 3)> 295 && length (asteroids gs) < 8 + 1 * fromIntegral (difficulty gs)]
+generateAsteroid asteroidSpawnPos asteroidSpawnChance difficulty asteroids = [(unsafePerformIO asteroidSpawnPos, 320) | unsafePerformIO asteroidSpawnChance + (difficulty * 3)> 295 && length asteroids < 8 + 1 * fromIntegral difficulty]
 
 -- Kollidieren wir mit irgendeinem Asteroiden?
 isCollidingWithAsteroideList :: Point -> [Asteroid] -> Int -> Bool
@@ -164,17 +164,11 @@ renderCheckAsteroide aste pos diffi = asteroidInsideGame aste && not (isCollidin
   Updaten des Gamestates!
 -}
 update :: Float -> GameState -> GameState
-update _ gs =
-  if isCollidingWithAsteroideList (position gs) (asteroids gs) (difficulty gs) then
+update _ gs = 
   gs {
-    asteroids = [(fst aste, snd aste - calcAsteroideSpeed (difficulty gs)) | aste <- asteroids gs, renderCheckAsteroide aste (position gs) (difficulty gs)] ++ generateAsteroid gs,
+    asteroids = [(fst aste, snd aste - calcAsteroideSpeed (difficulty gs)) | aste <- asteroids gs, renderCheckAsteroide aste (position gs) (difficulty gs)] ++ generateAsteroid (asteroidSpawnPos gs) (asteroidSpawnChance gs) (difficulty gs) (asteroids gs),
     position = movePlayer (direction gs) gs,
     livesLeft = livesLeft gs - isCollidingWithAsteroideListNum (position gs) (asteroids gs) (difficulty gs)
-    }
-    else
-  gs {
-    asteroids = [(fst aste, snd aste - calcAsteroideSpeed (difficulty gs)) | aste <- asteroids gs, renderCheckAsteroide aste (position gs) (difficulty gs)] ++ generateAsteroid gs,
-    position = movePlayer (direction gs) gs
   }
 
 
@@ -182,7 +176,7 @@ update _ gs =
 
 --Generiert random Positionen für unsere Asteroiden
 getRandomNum :: IO Float
-getRandomNum =  randomRIO (0,20) --150 --120?
+getRandomNum =  randomRIO (-120,120) --150 --120?
 
 
 --Random int zur bestimmung, ob ein Asteroid spawn (decluttern)
@@ -200,10 +194,9 @@ main = do
         GameState
           { position = (0.0, 0.0)
           , direction = None
-          , livesLeft = 5000
-          --, asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600), (00, 50)]
-          , asteroids = [(80, 90), (-80, 90), (50, 90), (-50, 90), (20, 80), (-20, 80), (00, 80)] -- SHOULD COLLIDE WITH ALL OF THEM
-          , difficulty = 10
+          , livesLeft = 5
+          , asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600), (00, 50)]
+          , difficulty = 1
           , asteroidSpawnPos = getRandomNum
           , asteroidSpawnChance = getRandomInt
           }
@@ -245,7 +238,7 @@ drawLivesLeft :: GameState -> Picture
 drawLivesLeft gs =
   if livesLeft gs > 0 then
   Color (makeColor 1 1 1 1) (pictures(
-    translate (0) (300) (Scale (0.3) (0.3) (Text (show (position gs)))) : [
+    translate (-150) (300) (Scale (0.3) (0.3) (Text "Leben")) : [
     translate (-200) (300) (Scale (0.3) (0.3) (Text (show (livesLeft gs))))
   ]))
   else

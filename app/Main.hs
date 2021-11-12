@@ -11,11 +11,14 @@ import Data.Int
 import System.Random (randomRIO, getStdGen, Random (randomR))
 import Data.Semigroup (diff)
 import Graphics.Gloss.Data.Point (pointInBox)
+import Data.Char (GeneralCategory(Space))
 
-data MoveDirection = East | West | North | South | None
+data MoveDirection = East | West | North | South | Shoot | None
   deriving (Eq)
 
 type Asteroid = Point
+
+type LaserShot = Point
 
 data GameState =
   GameState
@@ -26,6 +29,7 @@ data GameState =
     , asteroids :: [Asteroid]
     , asteroidSpawnPos :: IO Float
     , asteroidSpawnChance :: IO Int
+    , lasers :: [LaserShot]
     }
 
 tileSize :: Float
@@ -47,6 +51,7 @@ handleKeys (EventKey (SpecialKey KeyLeft) Down _ _) gs = gs {direction = West}
 handleKeys (EventKey (SpecialKey KeyRight) Down _ _) gs = gs {direction = East}
 handleKeys (EventKey (SpecialKey KeyUp ) Down _ _) gs = gs {direction = North}
 handleKeys (EventKey (SpecialKey KeyDown  ) Down _ _) gs = gs {direction = South}
+handleKeys (EventKey (SpecialKey KeySpace   ) Down _ _) gs = gs {direction = Shoot}
 handleKeys _ gs = gs {direction = None}
 
 
@@ -155,20 +160,38 @@ renderCheckAsteroide aste pos diffi = asteroidInsideGame aste && not (isCollidin
 
 
 
+{-
+  +++++ Laser Logik +++++
+-}
 
+updateLaserPos :: [LaserShot] -> MoveDirection -> Point ->  [LaserShot]
+updateLaserPos laser moveDir playerPos = [(fst las, snd las + 6) | las <- laser] ++ checkLaserSpawn moveDir playerPos
 
+checkLaserSpawn :: MoveDirection -> Point -> [LaserShot]
+checkLaserSpawn dir playerPos | dir == Shoot = [playerPos]
+                              | otherwise = []
 
 
 
 {-
-  Updaten des Gamestates!
+  +++++ Bewegen Logik +++++
 -}
+
+clearMoveDir :: MoveDirection -> MoveDirection
+clearMoveDir dir | dir == Shoot = None
+                 | otherwise = dir
+
+
+
+
 update :: Float -> GameState -> GameState
 update _ gs = 
   gs {
     asteroids = [(fst aste, snd aste - calcAsteroideSpeed (difficulty gs)) | aste <- asteroids gs, renderCheckAsteroide aste (position gs) (difficulty gs)] ++ generateAsteroid (asteroidSpawnPos gs) (asteroidSpawnChance gs) (difficulty gs) (asteroids gs),
     position = movePlayer (direction gs) gs,
-    livesLeft = livesLeft gs - isCollidingWithAsteroideListNum (position gs) (asteroids gs) (difficulty gs)
+    livesLeft = livesLeft gs - isCollidingWithAsteroideListNum (position gs) (asteroids gs) (difficulty gs),
+    lasers = updateLaserPos (lasers gs) (direction gs) (position gs),
+    direction = clearMoveDir (direction gs)
   }
 
 
@@ -190,6 +213,7 @@ main :: IO ()
 main = do
   asteroidImg <- loadBMP "assets/Asteroid.bmp"
   spaceshipImg <- loadBMP "assets/SpaceshipTest1.bmp"
+  laserImg <- loadBMP "assets/laser.bmp"
   let state =
         GameState
           { position = (0.0, 0.0)
@@ -199,13 +223,14 @@ main = do
           , difficulty = 1
           , asteroidSpawnPos = getRandomNum
           , asteroidSpawnChance = getRandomInt
+          , lasers = [(-50, -50)]
           }
   play
     window
     background
     fps
     state
-    (`render` [asteroidImg, spaceshipImg])
+    (`render` [asteroidImg, spaceshipImg, laserImg])
     handleKeys
     update
 
@@ -219,7 +244,8 @@ render gs imgs = pictures
        drawLivesLeft gs
        ] ++ [
          drawAsteroids gs imgs
-       ])
+       ] ++ [
+         drawLasers gs imgs])
 
 {-
   Liefert alle Asteroiden als Picture
@@ -243,3 +269,7 @@ drawLivesLeft gs =
   ]))
   else
     translate (-200) 0 (Color (makeColor 1 1 1 1) (Scale 0.5 0.5 (Text "Game Over")))
+
+  
+drawLasers :: GameState -> [Picture] -> Picture 
+drawLasers gs imgs = pictures [translate (fst las) (snd las) (imgs !! 2)| las <- lasers gs]

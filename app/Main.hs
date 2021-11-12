@@ -127,23 +127,28 @@ movePlayerProc _ gs = (position gs)
   +++++ Asteroiden Logik +++++
 -}
 
+
+-- Updaten der Asteroiden-pos
+updateAsteroidPos :: [Asteroid] -> Int -> [LaserShot] -> Point -> IO Float -> IO Int -> Int -> [Asteroid]
+updateAsteroidPos asteroids diffi lasers position asteroidSpawnPos asteroidSpawnChance livesLeft = [(fst aste, snd aste - calcAsteroideSpeed diffi) | aste <- asteroids, renderCheckAsteroide aste position diffi lasers livesLeft] ++ generateAsteroid asteroidSpawnPos asteroidSpawnChance diffi asteroids
+
 -- Erstellung eines Asteroiden, sofern RNG und Anzahl passt.
 generateAsteroid :: IO Float ->  IO Int -> Int -> [Asteroid] -> [Asteroid]
 --generateAsteroid gs = if(unsafePerformIO (asteroidSpawnChance gs)) + (difficulty gs * 3)> 295 && length (asteroids gs) < 8 + 1 * fromIntegral (difficulty gs) then [(unsafePerformIO (asteroidSpawnPos gs), 320)] else []
 generateAsteroid asteroidSpawnPos asteroidSpawnChance difficulty asteroids = [(unsafePerformIO asteroidSpawnPos, 320) | unsafePerformIO asteroidSpawnChance + (difficulty * 3)> 295 && length asteroids < 8 + 1 * fromIntegral difficulty]
 
 -- Kollidieren wir mit irgendeinem Asteroiden?
-isCollidingWithAsteroideList :: Point -> [Asteroid] -> Int -> Bool
-isCollidingWithAsteroideList playerPos asteri diffi = isCollidingWithAsteroideListNum playerPos asteri diffi > 0
+isCollidingWithAsteroideList :: Point -> [Asteroid] -> Int -> Int -> Bool
+isCollidingWithAsteroideList playerPos asteri diffi livesLeft = isCollidingWithAsteroideListNum playerPos asteri diffi livesLeft > 0
 
 -- Mit wievielen Asteroiden kollidieren wir?
-isCollidingWithAsteroideListNum :: Point -> [Asteroid] -> Int -> Int
-isCollidingWithAsteroideListNum playerPos asteri diffi = length [aste | aste <- asteri, isCollidingAsteroide playerPos aste diffi]
+isCollidingWithAsteroideListNum :: Point -> [Asteroid] -> Int -> Int -> Int
+isCollidingWithAsteroideListNum playerPos asteri diffi livesLeft = length [aste | aste <- asteri, isCollidingAsteroide playerPos aste diffi livesLeft]
 
 -- Kolledieren wir mit diesem Asteroiden?
-isCollidingAsteroide :: Point -> Point -> Int -> Bool
+isCollidingAsteroide :: Point -> Point -> Int -> Int -> Bool
 --isCollidingAsteroide p1 p2 diffi = pointInBox p1 (fst p2 * 2 + 50 , snd p2 * 2 + 40) (fst p2 * 2 - 50, snd p2 * 2 - 40) -- Für Difficulty 1
-isCollidingAsteroide p1 p2 diffi = pointInBox p1 (fst p2 * asteroidSizeCalc diffi + 50 , snd p2 * asteroidSizeCalc diffi + 40) (fst p2 * asteroidSizeCalc diffi - 50, snd p2 * asteroidSizeCalc diffi - 40) -- Für Difficulty 1
+isCollidingAsteroide p1 p2 diffi livesLeft = pointInBox p1 (fst p2 * asteroidSizeCalc diffi + 50 , snd p2 * asteroidSizeCalc diffi + 40) (fst p2 * asteroidSizeCalc diffi - 50, snd p2 * asteroidSizeCalc diffi - 40) && livesLeft > 0 -- Für Difficulty 1
 
 -- Asteroid innerhalb des angezeigten Bereiches?
 asteroidInsideGame :: Asteroid -> Bool
@@ -154,22 +159,36 @@ calcAsteroideSpeed :: Int -> Float
 calcAsteroideSpeed diffi = asteroidBaseSpeed + 0.2 * fromIntegral diffi
 
 -- Check, ob der Asteroid weiterhin exisitieren soll
-renderCheckAsteroide :: Asteroid -> Point -> Int -> Bool
-renderCheckAsteroide aste pos diffi = asteroidInsideGame aste && not (isCollidingAsteroide pos aste diffi)
+renderCheckAsteroide :: Asteroid -> Point -> Int -> [LaserShot] -> Int -> Bool
+renderCheckAsteroide aste pos diffi lasers livesLeft = asteroidInsideGame aste && not (isCollidingAsteroide pos aste diffi livesLeft) && not (isCollidingWithLaser aste lasers diffi)
 
 
+-- Check, ob der Asteroid vom Laser getroffen wurde
+isCollidingWithLaser :: Asteroid -> [LaserShot] -> Int -> Bool
+isCollidingWithLaser asteroid laser diffi = not (null ([lase | lase <- laser, asteroidLaserCollision asteroid lase diffi]))
+
+-- Kollision zwischen Laser und Aste?
+asteroidLaserCollision :: Asteroid -> LaserShot -> Int -> Bool
+asteroidLaserCollision aste las diffi = pointInBox las (fst aste * asteroidSizeCalc diffi + 20 , snd aste * asteroidSizeCalc diffi + 40) (fst aste * asteroidSizeCalc diffi - 20, snd aste * asteroidSizeCalc diffi - 40)
 
 
 {-
   +++++ Laser Logik +++++
 -}
 
-updateLaserPos :: [LaserShot] -> MoveDirection -> Point ->  [LaserShot]
-updateLaserPos laser moveDir playerPos = [(fst las, snd las + 6) | las <- laser] ++ checkLaserSpawn moveDir playerPos
 
-checkLaserSpawn :: MoveDirection -> Point -> [LaserShot]
-checkLaserSpawn dir playerPos | dir == Shoot = [playerPos]
-                              | otherwise = []
+-- Updaten der Laserposition
+updateLaserPos :: [LaserShot] -> MoveDirection -> Point -> [Asteroid] -> Int -> Int -> [LaserShot]
+updateLaserPos laser moveDir playerPos asteroids diffi livesLeft = [(fst las, snd las + 6) | las <- laser, not (checkLaserAsteroidCollision asteroids las diffi)] ++ checkLaserSpawn moveDir playerPos livesLeft
+
+-- Kollisionsabfrage zwischen Laser und Asteroid
+checkLaserAsteroidCollision :: [Asteroid] -> LaserShot -> Int -> Bool
+checkLaserAsteroidCollision asteroids laserShot diffi = not (null ([aste | aste <- asteroids, asteroidLaserCollision aste laserShot diffi]))
+
+-- Laser Spawn
+checkLaserSpawn :: MoveDirection -> Point -> Int -> [LaserShot]
+checkLaserSpawn dir playerPos livesLeft | dir == Shoot && livesLeft > 0 = [playerPos]
+                                        | otherwise = []
 
 
 
@@ -185,12 +204,12 @@ clearMoveDir dir | dir == Shoot = None
 
 
 update :: Float -> GameState -> GameState
-update _ gs = 
+update _ gs =
   gs {
-    asteroids = [(fst aste, snd aste - calcAsteroideSpeed (difficulty gs)) | aste <- asteroids gs, renderCheckAsteroide aste (position gs) (difficulty gs)] ++ generateAsteroid (asteroidSpawnPos gs) (asteroidSpawnChance gs) (difficulty gs) (asteroids gs),
+    asteroids = updateAsteroidPos (asteroids gs) (difficulty gs) (lasers gs) (position gs) (asteroidSpawnPos gs) (asteroidSpawnChance gs) (livesLeft gs),
     position = movePlayer (direction gs) gs,
-    livesLeft = livesLeft gs - isCollidingWithAsteroideListNum (position gs) (asteroids gs) (difficulty gs),
-    lasers = updateLaserPos (lasers gs) (direction gs) (position gs),
+    livesLeft = livesLeft gs - isCollidingWithAsteroideListNum (position gs) (asteroids gs) (difficulty gs) (livesLeft gs),
+    lasers = updateLaserPos (lasers gs) (direction gs) (position gs) (asteroids gs) (difficulty gs) (livesLeft gs),
     direction = clearMoveDir (direction gs)
   }
 
@@ -270,6 +289,6 @@ drawLivesLeft gs =
   else
     translate (-200) 0 (Color (makeColor 1 1 1 1) (Scale 0.5 0.5 (Text "Game Over")))
 
-  
-drawLasers :: GameState -> [Picture] -> Picture 
+
+drawLasers :: GameState -> [Picture] -> Picture
 drawLasers gs imgs = pictures [translate (fst las) (snd las) (imgs !! 2)| las <- lasers gs]

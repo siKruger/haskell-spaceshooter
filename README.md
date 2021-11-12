@@ -9,3 +9,7 @@
 
 Arrow Keys - Move \
 Spacebar - Shoot
+
+## Building
+
+Use  **stack run** to execute

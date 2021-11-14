@@ -12,6 +12,9 @@ import System.Random (randomRIO, getStdGen, Random (randomR))
 import Data.Semigroup (diff)
 import Graphics.Gloss.Data.Point (pointInBox)
 import Data.Char (GeneralCategory(Space))
+import Data.Time.LocalTime (TimeOfDay)
+import Data.Time (getCurrentTime, UTCTime, diffUTCTime)
+import Data.Time.Clock.POSIX (getCurrentTime)
 
 data MoveDirection = East | West | North | South | Shoot | None
   deriving (Eq)
@@ -30,6 +33,8 @@ data GameState =
     , asteroidSpawnPos :: IO Float
     , asteroidSpawnChance :: IO Int
     , lasers :: [LaserShot]
+    , lastLevelChange :: UTCTime
+    , currentTime :: IO UTCTime
     }
 
 tileSize :: Float
@@ -201,8 +206,32 @@ clearMoveDir dir | dir == Shoot = None
                  | otherwise = dir
 
 
+{-
+  +++++ Schwierigkeit Update Logik +++++
+-}
+
+-- Updated alle 30 Sekunden die Schwierigkeit
+updateDifficulty :: UTCTime -> IO UTCTime -> Int -> Int
+updateDifficulty time currentTime diff =
+  if diffUTCTime (unsafePerformIO currentTime) time >=  30 then
+     diff + 1
+   else
+     diff
+
+-- Updated die Zeit, bei der das letze mal geändert wurde.
+updateLastTime :: UTCTime -> IO UTCTime -> UTCTime
+updateLastTime lastTime currentTime =
+  if diffUTCTime (unsafePerformIO currentTime) lastTime > 30.01 then
+      unsafePerformIO currentTime
+    else
+      lastTime
 
 
+{-
+  +++++ Gloss Logik +++++
+-}
+
+-- Update Funktion
 update :: Float -> GameState -> GameState
 update _ gs =
   gs {
@@ -210,51 +239,13 @@ update _ gs =
     position = movePlayer (direction gs) gs,
     livesLeft = livesLeft gs - isCollidingWithAsteroideListNum (position gs) (asteroids gs) (difficulty gs) (livesLeft gs),
     lasers = updateLaserPos (lasers gs) (direction gs) (position gs) (asteroids gs) (difficulty gs) (livesLeft gs),
-    direction = clearMoveDir (direction gs)
+    direction = clearMoveDir (direction gs),
+    difficulty = updateDifficulty (lastLevelChange gs) (currentTime gs) (difficulty gs),
+    lastLevelChange = updateLastTime (lastLevelChange gs) (currentTime gs)
   }
 
 
-
-
---Generiert random Positionen für unsere Asteroiden
-getRandomNum :: IO Float
-getRandomNum =  randomRIO (-120,120) --150 --120?
-
-
---Random int zur bestimmung, ob ein Asteroid spawn (decluttern)
-getRandomInt :: IO Int
-getRandomInt = randomRIO(0, 300)
-
-asteroidBaseSpeed :: Float
-asteroidBaseSpeed = 0.8 --0.8
-
-main :: IO ()
-main = do
-  asteroidImg <- loadBMP "assets/Asteroid.bmp"
-  spaceshipImg <- loadBMP "assets/SpaceshipTest1.bmp"
-  laserImg <- loadBMP "assets/laser.bmp"
-  let state =
-        GameState
-          { position = (0.0, 0.0)
-          , direction = None
-          , livesLeft = 5
-          , asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600), (00, 50)]
-          , difficulty = 1
-          , asteroidSpawnPos = getRandomNum
-          , asteroidSpawnChance = getRandomInt
-          , lasers = [(-50, -50)]
-          }
-  play
-    window
-    background
-    fps
-    state
-    (`render` [asteroidImg, spaceshipImg, laserImg])
-    handleKeys
-    update
-
-
--- render Methode von Gloss zum Darstellen
+-- Render Funktion
 render :: GameState -> [Picture] -> Picture
 render gs imgs = pictures
     ([ uncurry translate (position gs)
@@ -266,29 +257,98 @@ render gs imgs = pictures
        ] ++ [
          drawLasers gs imgs])
 
-{-
-  Liefert alle Asteroiden als Picture
--}
-drawAsteroids :: GameState -> [Picture] -> Picture
-drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc (difficulty gs)) (asteroidSizeCalc (difficulty gs)) (uncurry translate aste (head imgs)) | aste <- asteroids gs]
+-- Main Funktion
+main :: IO ()
+main = do
+  asteroidImg <- loadBMP "assets/Asteroid.bmp"
+  spaceshipImg <- loadBMP "assets/SpaceshipTest1.bmp"
+  laserImg <- loadBMP "assets/laser.bmp"
+  let state =
+        GameState
+          { position = (0.0, 0.0)
+          , direction = None
+          , livesLeft = 500
+          , asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600)]
+          , difficulty = 1
+          , asteroidSpawnPos = getRandomNum
+          , asteroidSpawnChance = getRandomInt
+          , lasers = []
+          , lastLevelChange = unsafePerformIO getCurrentTime
+          , currentTime = getCurrentTime
+          }
+  play
+    window
+    background
+    fps
+    state
+    (`render` [asteroidImg, spaceshipImg, laserImg])
+    handleKeys
+    update
 
-asteroidSizeCalc :: Int -> Float
-asteroidSizeCalc diffi = 2 + 0.1 * fromIntegral diffi
---asteroidSizeCalc gs = 1
-
 {-
-  Zeigt die Verbleibenden Leben an/ game over
+  +++++ Render related Stuff +++++
 -}
+
+-- Laser darstellen
+drawLasers :: GameState -> [Picture] -> Picture
+drawLasers gs imgs = pictures [translate (fst las) (snd las) (imgs !! 2)| las <- lasers gs]
+
+-- Lebensanzeige
 drawLivesLeft :: GameState -> Picture
 drawLivesLeft gs =
   if livesLeft gs > 0 then
   Color (makeColor 1 1 1 1) (pictures(
     translate (-150) (300) (Scale (0.3) (0.3) (Text "Leben")) : [
-    translate (-200) (300) (Scale (0.3) (0.3) (Text (show (livesLeft gs))))
-  ]))
+    translate (-200) (300) (Scale (0.3) (0.3) (Text (show (livesLeft gs))))]))
   else
-    translate (-200) 0 (Color (makeColor 1 1 1 1) (Scale 0.5 0.5 (Text "Game Over")))
+    pictures ([
+      translate (-200) 0 (Color (makeColor 1 1 1 1) (Scale 0.5 0.5 (Text "Game Over")))
+      ] ++ [
+      translate (-150) (-100) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text "Level:")))
+      ] ++ [
+      translate (50) (-100) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text (show (difficulty gs)))))
+      ])
+
+-- Zeichnet die Asteroiden
+drawAsteroids :: GameState -> [Picture] -> Picture
+drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc (difficulty gs)) (asteroidSizeCalc (difficulty gs)) (uncurry translate aste (head imgs)) | aste <- asteroids gs]
 
 
-drawLasers :: GameState -> [Picture] -> Picture
-drawLasers gs imgs = pictures [translate (fst las) (snd las) (imgs !! 2)| las <- lasers gs]
+
+{-
+  +++++ Monden misc +++++
+-}
+
+--Generiert random Positionen für unsere Asteroiden
+getRandomNum :: IO Float
+getRandomNum =  randomRIO (-120,120) --150 --120?
+
+--Random int zur bestimmung, ob ein Asteroid spawn (decluttern)
+getRandomInt :: IO Int
+getRandomInt = randomRIO(0, 300)
+
+
+{-
+  +++++ Konstanten misc +++++
+-}
+
+
+
+
+
+asteroidBaseSpeed :: Float
+asteroidBaseSpeed = 0.8 --0.8
+
+
+
+
+
+
+{-
+  Liefert alle Asteroiden als Picture
+-}
+
+
+asteroidSizeCalc :: Int -> Float
+asteroidSizeCalc diffi = 2 + 0.1 * fromIntegral diffi
+--asteroidSizeCalc gs = 1

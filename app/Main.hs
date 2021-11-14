@@ -16,48 +16,13 @@ import Data.Time.LocalTime (TimeOfDay)
 import Data.Time (getCurrentTime, UTCTime, diffUTCTime)
 import Data.Time.Clock.POSIX (getCurrentTime)
 
-data MoveDirection = East | West | North | South | Shoot | None
-  deriving (Eq)
-
-type Asteroid = Point
-
-type LaserShot = Point
-
-data GameState =
-  GameState
-    { position :: Point
-    , direction :: MoveDirection
-    , livesLeft :: Int
-    , difficulty :: Int
-    , asteroids :: [Asteroid]
-    , asteroidSpawnPos :: IO Float
-    , asteroidSpawnChance :: IO Int
-    , lasers :: [LaserShot]
-    , lastLevelChange :: UTCTime
-    , currentTime :: IO UTCTime
-    }
-
-tileSize :: Float
-tileSize = 32.0
-
-window :: Display
-window = InWindow "Space Shooter" (500, 700) (50, 50)
-
-background :: Color
-background = makeColor 0.033 0.04 0.26 1
-
-fps :: Int
-fps = 60
 
 
--- Key Input abarbeiten und handeln
-handleKeys :: Event -> GameState -> GameState
-handleKeys (EventKey (SpecialKey KeyLeft) Down _ _) gs = gs {direction = West}
-handleKeys (EventKey (SpecialKey KeyRight) Down _ _) gs = gs {direction = East}
-handleKeys (EventKey (SpecialKey KeyUp ) Down _ _) gs = gs {direction = North}
-handleKeys (EventKey (SpecialKey KeyDown  ) Down _ _) gs = gs {direction = South}
-handleKeys (EventKey (SpecialKey KeySpace   ) Down _ _) gs = gs {direction = Shoot}
-handleKeys _ gs = gs {direction = None}
+
+
+
+
+
 
 
 
@@ -197,6 +162,12 @@ checkLaserSpawn dir playerPos livesLeft | dir == Shoot && livesLeft > 0 = [playe
 
 
 
+
+
+
+
+
+
 {-
   +++++ Bewegen Logik +++++
 -}
@@ -204,6 +175,12 @@ checkLaserSpawn dir playerPos livesLeft | dir == Shoot && livesLeft > 0 = [playe
 clearMoveDir :: MoveDirection -> MoveDirection
 clearMoveDir dir | dir == Shoot = None
                  | otherwise = dir
+
+
+
+
+
+
 
 
 {-
@@ -225,6 +202,13 @@ updateLastTime lastTime currentTime =
       unsafePerformIO currentTime
     else
       lastTime
+
+
+
+
+
+
+
 
 
 {-
@@ -267,7 +251,7 @@ main = do
         GameState
           { position = (0.0, 0.0)
           , direction = None
-          , livesLeft = 500
+          , livesLeft = 5
           , asteroids = [(300, -300), (300, -200), (300, 0), (300, -100), (300, 200), (300, 300), (300, 400), (300, 500), (300, 600)]
           , difficulty = 1
           , asteroidSpawnPos = getRandomNum
@@ -284,6 +268,14 @@ main = do
     (`render` [asteroidImg, spaceshipImg, laserImg])
     handleKeys
     update
+
+
+
+
+
+
+
+
 
 {-
   +++++ Render related Stuff +++++
@@ -313,6 +305,16 @@ drawLivesLeft gs =
 drawAsteroids :: GameState -> [Picture] -> Picture
 drawAsteroids gs imgs = pictures [scale (asteroidSizeCalc (difficulty gs)) (asteroidSizeCalc (difficulty gs)) (uncurry translate aste (head imgs)) | aste <- asteroids gs]
 
+-- Größe der Asteroiden
+asteroidSizeCalc :: Int -> Float
+asteroidSizeCalc diffi = 2 + 0.1 * fromIntegral diffi
+
+
+
+
+
+
+
 
 
 {-
@@ -328,16 +330,30 @@ getRandomInt :: IO Int
 getRandomInt = randomRIO(0, 300)
 
 
+
+
+
+
+
+
+
 {-
   +++++ Konstanten misc +++++
 -}
 
 
-
-
-
 asteroidBaseSpeed :: Float
 asteroidBaseSpeed = 0.8 --0.8
+
+window :: Display
+window = InWindow "Space Shooter" (500, 700) (50, 50)
+
+background :: Color
+background = makeColor 0.033 0.04 0.26 1
+
+fps :: Int
+fps = 60
+
 
 
 
@@ -345,10 +361,49 @@ asteroidBaseSpeed = 0.8 --0.8
 
 
 {-
-  Liefert alle Asteroiden als Picture
+  +++++ Typen +++++
 -}
 
+data MoveDirection = East | West | North | South | Shoot | None
+  deriving (Eq)
 
-asteroidSizeCalc :: Int -> Float
-asteroidSizeCalc diffi = 2 + 0.1 * fromIntegral diffi
---asteroidSizeCalc gs = 1
+type Asteroid = Point
+
+type LaserShot = Point
+
+data GameState =
+  GameState
+    { position :: Point
+    , direction :: MoveDirection
+    , livesLeft :: Int
+    , difficulty :: Int
+    , asteroids :: [Asteroid]
+    , asteroidSpawnPos :: IO Float
+    , asteroidSpawnChance :: IO Int
+    , lasers :: [LaserShot]
+    , lastLevelChange :: UTCTime
+    , currentTime :: IO UTCTime
+    }
+
+
+
+
+
+
+
+
+
+
+
+{-
+  +++++ Input zeugs +++++
+-}
+
+-- Key Input abarbeiten und handeln
+handleKeys :: Event -> GameState -> GameState
+handleKeys (EventKey (SpecialKey KeyLeft) Down _ _) gs = gs {direction = West}
+handleKeys (EventKey (SpecialKey KeyRight) Down _ _) gs = gs {direction = East}
+handleKeys (EventKey (SpecialKey KeyUp ) Down _ _) gs = gs {direction = North}
+handleKeys (EventKey (SpecialKey KeyDown  ) Down _ _) gs = gs {direction = South}
+handleKeys (EventKey (SpecialKey KeySpace   ) Down _ _) gs = gs {direction = Shoot}
+handleKeys _ gs = gs {direction = None}

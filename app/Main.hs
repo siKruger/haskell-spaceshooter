@@ -1,5 +1,10 @@
 module Main where
 
+{-
+  +++++ Imports +++++
+-}
+
+
 import Graphics.Gloss
 
 import Graphics.Gloss.Interface.Pure.Game
@@ -16,79 +21,6 @@ import Data.Time.LocalTime (TimeOfDay)
 import Data.Time (getCurrentTime, UTCTime, diffUTCTime)
 import Data.Time.Clock.POSIX (getCurrentTime)
 
-
-
-
-
-
-
-
-
-
-
-{-
-Kollision mit der Wand unserer Spielwelt
-
-todo: refactor in eine methode mit pattern matching
--}
-isCollisionWithGameWallRight :: Point -> Bool
-isCollisionWithGameWallRight pnt = (fst (pnt) < 200)
-
-isCollisionWithGameWallLeft :: Point -> Bool
-isCollisionWithGameWallLeft pnt = (fst (pnt) > -200)
-
-isCollisionWithGameWallUp :: Point -> Bool
-isCollisionWithGameWallUp pnt = (snd (pnt) < 300)
-
-isCollisionWithGameWallDown :: Point -> Bool
-isCollisionWithGameWallDown pnt = (snd (pnt) > -300)
-
-
-
-
-{-
-  Move player mit Abfrage für Game Over
--}
-movePlayer :: MoveDirection -> GameState -> Point
-movePlayer dir gs = if livesLeft gs > 0 then
-  movePlayerProc dir gs
-  else
-    (0,-50)
-
-{- 
-fst, snd geben das erste/letzte Element einer Liste zurück
--}
-movePlayerProc :: MoveDirection -> GameState -> Point
-movePlayerProc East gs =
-  if isCollisionWithGameWallRight (fst (position gs), snd (position gs))
-    then
-    (fst (position gs) + 5, snd (position gs))
-    else
-      (position gs)
-
-movePlayerProc West gs =
-  if isCollisionWithGameWallLeft (fst (position gs), snd (position gs))
-    then
-      (fst (position gs) + 5 * (-1), snd (position gs))
-    else
-      (position gs)
-
-movePlayerProc North gs =
-  if isCollisionWithGameWallUp (fst (position gs), snd (position gs))
-    then
-      (fst (position gs), snd (position gs) + (-5) * (-1))
-    else
-      (position gs)
-
-
-movePlayerProc South gs =
-  if isCollisionWithGameWallDown (fst (position gs), snd (position gs))
-    then
-      (fst (position gs), snd (position gs) +  (-5) * 1)
-    else
-      (position gs)
-
-movePlayerProc _ gs = (position gs)
 
 
 
@@ -142,6 +74,11 @@ asteroidLaserCollision :: Asteroid -> LaserShot -> Int -> Bool
 asteroidLaserCollision aste las diffi = pointInBox las (fst aste * asteroidSizeCalc diffi + 20 , snd aste * asteroidSizeCalc diffi + 40) (fst aste * asteroidSizeCalc diffi - 20, snd aste * asteroidSizeCalc diffi - 40)
 
 
+
+
+
+
+
 {-
   +++++ Laser Logik +++++
 -}
@@ -172,14 +109,46 @@ checkLaserSpawn dir playerPos livesLeft | dir == Shoot && livesLeft > 0 = [playe
   +++++ Bewegen Logik +++++
 -}
 
+-- Bewegungsrichtung "löschen" bei Schuss
 clearMoveDir :: MoveDirection -> MoveDirection
 clearMoveDir dir | dir == Shoot = None
                  | otherwise = dir
 
+-- Bewegt den Spieler, wenn mehr als 0 Leben
+movePlayer :: MoveDirection -> Point -> Int -> Point
+movePlayer dir playerPos livesLeft = if livesLeft > 0 then
+  movePlayerProc dir playerPos
+  else
+    (0,-50)
 
 
 
+-- Bewegt den Spieler, falls keine Kollision
+movePlayerProc :: MoveDirection -> Point -> Point
+movePlayerProc moveDir playerPos = 
+  if isWallCollision moveDir playerPos then 
+    calcNewPlayerPos moveDir playerPos
+  else
+    playerPos
 
+
+-- Berechnen der neuen Position
+calcNewPlayerPos :: MoveDirection -> Point -> Point
+calcNewPlayerPos North pos = (fst pos, snd pos + 5)
+calcNewPlayerPos East pos = (fst pos + 5, snd pos)
+calcNewPlayerPos South pos = (fst pos, snd pos - 5)
+calcNewPlayerPos West pos = (fst pos - 5, snd pos)
+calcNewPlayerPos _ pos = pos
+
+
+
+-- Kollisionsabfrage mit der Wand
+isWallCollision :: MoveDirection -> Point -> Bool
+isWallCollision dir pos | dir == East = fst pos < 200
+                        | dir == West = fst pos > -200
+                        | dir == North = snd pos < 300
+                        | dir == South = snd pos > -300
+                        | otherwise = False
 
 
 
@@ -188,9 +157,9 @@ clearMoveDir dir | dir == Shoot = None
 -}
 
 -- Updated alle 30 Sekunden die Schwierigkeit
-updateDifficulty :: UTCTime -> IO UTCTime -> Int -> Int
-updateDifficulty time currentTime diff =
-  if diffUTCTime (unsafePerformIO currentTime) time >=  30 then
+updateDifficulty :: UTCTime -> IO UTCTime -> Int -> Int -> Int
+updateDifficulty time currentTime diff livesLeft =
+  if diffUTCTime (unsafePerformIO currentTime) time >=  30 && livesLeft > 0 then
      diff + 1
    else
      diff
@@ -220,11 +189,11 @@ update :: Float -> GameState -> GameState
 update _ gs =
   gs {
     asteroids = updateAsteroidPos (asteroids gs) (difficulty gs) (lasers gs) (position gs) (asteroidSpawnPos gs) (asteroidSpawnChance gs) (livesLeft gs),
-    position = movePlayer (direction gs) gs,
+    position = movePlayer (direction gs) (position gs) (livesLeft gs),
     livesLeft = livesLeft gs - isCollidingWithAsteroideListNum (position gs) (asteroids gs) (difficulty gs) (livesLeft gs),
     lasers = updateLaserPos (lasers gs) (direction gs) (position gs) (asteroids gs) (difficulty gs) (livesLeft gs),
     direction = clearMoveDir (direction gs),
-    difficulty = updateDifficulty (lastLevelChange gs) (currentTime gs) (difficulty gs),
+    difficulty = updateDifficulty (lastLevelChange gs) (currentTime gs) (difficulty gs) (livesLeft gs),
     lastLevelChange = updateLastTime (lastLevelChange gs) (currentTime gs)
   }
 

@@ -8,7 +8,7 @@ import Data.Char (GeneralCategory (Space))
 import Data.Fixed (Pico)
 import Data.Int
 import Data.Semigroup (diff)
-import Data.Time (UTCTime, diffUTCTime, getCurrentTime)
+import Data.Time (UTCTime, diffUTCTime, getCurrentTime, DiffTime, NominalDiffTime)
 import Data.Time.Clock.POSIX (getCurrentTime)
 import Data.Time.LocalTime (TimeOfDay)
 import Graphics.Gloss
@@ -141,6 +141,11 @@ updateLastTime lastTime currentTime =
     then unsafePerformIO currentTime
     else lastTime
 
+
+-- Update die Zeit, die wir überlebt haben
+finalizeSurviveTime :: UTCTime -> IO UTCTime -> Int -> NominalDiffTime -> NominalDiffTime 
+finalizeSurviveTime startedTime currentTime livesLeft currentSurvive = if(livesLeft > 0) then diffUTCTime (unsafePerformIO currentTime) startedTime else currentSurvive
+
 {-
   +++++ Gloss Logik +++++
 -}
@@ -155,7 +160,8 @@ update _ gs =
       lasers = updateLaserPos (lasers gs) (direction gs) (position gs) (asteroids gs) (difficulty gs) (livesLeft gs),
       direction = clearMoveDir (direction gs),
       difficulty = updateDifficulty (lastLevelChange gs) (currentTime gs) (difficulty gs) (livesLeft gs),
-      lastLevelChange = updateLastTime (lastLevelChange gs) (currentTime gs)
+      lastLevelChange = updateLastTime (lastLevelChange gs) (currentTime gs),
+      timeSurvived = finalizeSurviveTime (gameStart gs) (currentTime gs) (livesLeft gs) (timeSurvived gs)
     }
 
 -- Render Funktion
@@ -192,7 +198,9 @@ main = do
             asteroidSpawnChance = getRandomInt,
             lasers = [],
             lastLevelChange = unsafePerformIO getCurrentTime,
-            currentTime = getCurrentTime
+            currentTime = getCurrentTime,
+            gameStart = unsafePerformIO getCurrentTime,
+            timeSurvived = diffUTCTime (unsafePerformIO (currentTime state)) (gameStart state)
           }
   play
     window
@@ -232,6 +240,12 @@ drawLivesLeft gs =
             ++ [ translate (-150) (-100) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text "Level:")))
                ]
             ++ [ translate 50 (-100) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text (show (difficulty gs)))))
+               ]
+
+
+            ++ [ translate (-150) (-200) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text "Zeit:")))
+               ]
+            ++ [ translate (-50) (-200) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text (show (timeSurvived gs)))))
                ]
         )
 
@@ -292,7 +306,9 @@ data GameState = GameState
     asteroidSpawnChance :: IO Int,
     lasers :: [LaserShot],
     lastLevelChange :: UTCTime,
-    currentTime :: IO UTCTime
+    currentTime :: IO UTCTime,
+    gameStart :: UTCTime,
+    timeSurvived :: NominalDiffTime  
   }
 
 {-

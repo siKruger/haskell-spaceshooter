@@ -143,8 +143,8 @@ updateLastTime lastTime currentTime =
 
 
 -- Update die Zeit, die wir überlebt haben
-finalizeSurviveTime :: UTCTime -> IO UTCTime -> Int -> NominalDiffTime -> NominalDiffTime 
-finalizeSurviveTime startedTime currentTime livesLeft currentSurvive = if(livesLeft > 0) then diffUTCTime (unsafePerformIO currentTime) startedTime else currentSurvive
+finalizeSurviveTime :: UTCTime -> IO UTCTime -> Int -> NominalDiffTime -> NominalDiffTime
+finalizeSurviveTime startedTime currentTime livesLeft currentSurvive = if livesLeft > 0 then diffUTCTime (unsafePerformIO currentTime) startedTime else currentSurvive
 
 {-
   +++++ Gloss Logik +++++
@@ -308,7 +308,7 @@ data GameState = GameState
     lastLevelChange :: UTCTime,
     currentTime :: IO UTCTime,
     gameStart :: UTCTime,
-    timeSurvived :: NominalDiffTime  
+    timeSurvived :: NominalDiffTime
   }
 
 {-

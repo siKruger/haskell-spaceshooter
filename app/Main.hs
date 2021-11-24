@@ -245,7 +245,9 @@ drawLivesLeft gs =
 
             ++ [ translate (-150) (-200) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text "Zeit:")))
                ]
-            ++ [ translate (-50) (-200) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text (show (timeSurvived gs)))))
+            ++ [ translate (-50) (-200) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text (take 6 (show (timeSurvived gs))))))
+               ]
+            ++ [ translate 80 (-200) (Color (makeColor 1 1 1 1) (Scale 0.3 0.3 (Text "s")))
                ]
         )
 

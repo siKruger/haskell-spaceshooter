@@ -12,4 +12,7 @@ Spacebar - Shoot
 
 ## Building
 
-Use  **stack run** to execute
+Use  **stack run** to execute 
+
+
+Use **stack build** followed by **stack exec space-shooter-exe** to build and execute 
